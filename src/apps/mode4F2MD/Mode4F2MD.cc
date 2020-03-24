@@ -144,8 +144,10 @@ void Mode4F2MD::receiveSignal(cComponent* source, simsignal_t signalID, cObject*
 
 void Mode4F2MD::handlePositionUpdate(cObject* obj)
 {
-    curPosition = veins::Coord(mobility->getCurrentPosition().x,mobility->getCurrentPosition().y,mobility->getCurrentPosition().z);
-    curSpeed = veins::Coord(mobility->getCurrentSpeed().x,mobility->getCurrentSpeed().y,mobility->getCurrentSpeed().z);
+    curPosition = mobility->getVeinsPosition();
+    curSpeed = mobility->getVeinsSpeed();
+    curAccel = mobility->getVeinsAccel();
+    curHeading = mobility->getVeinsHeading();
 }
 
 

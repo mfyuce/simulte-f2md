@@ -112,8 +112,9 @@ protected:
 
     veins::Coord curPosition;
     veins::Coord curSpeed;
+    veins::Coord curHeading;
+    veins::Coord curAccel;
 
-    bool isParked;
 };
 
 #endif

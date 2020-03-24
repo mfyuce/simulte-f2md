@@ -28,7 +28,7 @@
 
 #include "veins/base/modules/BaseApplLayer.h"
 
-class Mode4BaseF2MD : public veins::BaseApplLayer {
+class Mode4BaseF2MD : public cSimpleModule, public cListener {
 public:
 
 
