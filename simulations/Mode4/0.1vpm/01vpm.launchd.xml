@@ -1,5 +1,5 @@
 <launch>
-  <basedir path="/home/brian/git_repos/simulte/simulations/Mode4/0.1vpm"/>
+  <basedir path="/home/joseph/Projects/C-V2X/git-repositories/simulte-f2md/simulations/Mode4/0.1vpm"/>
   <copy file="01vpm.net.xml"/>
   <copy file="01vpm.rou.xml"/>
   <copy file="01vpm.add.xml"/>
