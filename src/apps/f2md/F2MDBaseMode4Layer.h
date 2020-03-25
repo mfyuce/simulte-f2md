@@ -88,7 +88,7 @@ protected:
    /** @brief this function is called upon receiving a DemoSafetyMessage, also referred to as a beacon  */
    virtual void onBSM(BasicSafetyMessage* bsm){};
    /** @brief sets all the necessary fields in the WSM, BSM, or WSA. */
-   virtual void populateWSM(BasicSafetyMessage* bsm);
+   virtual void populateBSM(BasicSafetyMessage* bsm);
 
 protected:
     //sender
@@ -126,6 +126,8 @@ protected:
     veins::Coord curSpeed;
     veins::Coord curHeading;
     veins::Coord curAccel;
+
+    veins::LAddress::L2Type myId = 0;
 
 
 

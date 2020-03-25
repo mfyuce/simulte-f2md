@@ -60,6 +60,10 @@ void F2MDBaseMode4Layer::initialize(int stage)
 
         // Register the nodeId_ with the binder.
         binder_->setMacNodeId(nodeId_, nodeId_);
+
+        // store MAC address for quick access
+        myId = nodeId_;
+
     } else if (stage==inet::INITSTAGE_APPLICATION_LAYER) {
 
         sendBeaconEvt = NULL;
@@ -109,7 +113,6 @@ void F2MDBaseMode4Layer::handleLowerMessage(cMessage* msg)
     } else {
         if(BasicSafetyMessage* bsm = dynamic_cast<BasicSafetyMessage*>(msg)){
             onBSM(bsm);
-            std::cout<< "final test " << bsm->getSenderAccel()<<"\n";
         }else if(AlertPacket* pkt = check_and_cast<AlertPacket*>(msg)){
             if (pkt == 0)
                 throw cRuntimeError("F2MDBaseMode4Layer::handleMessage - FATAL! Error when casting to AlertPacket");
@@ -123,7 +126,6 @@ void F2MDBaseMode4Layer::handleLowerMessage(cMessage* msg)
             delete msg;
         }
 
-
     }
 }
 
@@ -132,7 +134,7 @@ void F2MDBaseMode4Layer::handleSelfMessage(cMessage* msg)
     switch (msg->getKind()) {
     case SEND_BEACON_EVT: {
         BasicSafetyMessage* bsm = new BasicSafetyMessage();
-        populateWSM(bsm);
+        populateBSM(bsm);
 
         auto lteControlInfo = new FlowControlInfoNonIp();
 
@@ -200,7 +202,7 @@ void F2MDBaseMode4Layer::handlePositionUpdate(cObject* obj)
     curHeading = mobility->getVeinsHeading();
 }
 
-void F2MDBaseMode4Layer::populateWSM(BasicSafetyMessage* bsm)
+void F2MDBaseMode4Layer::populateBSM(BasicSafetyMessage* bsm)
 {
     bsm->setRecipientAddress(veins::LAddress::L2BROADCAST());
     bsm->setBitLength(headerLength);
