@@ -33,6 +33,8 @@
 #include "veins_inet/VeinsInetMobility.h"
 #include "veins_inet/VeinsInetManager.h"
 
+#include "veins/modules/application/f2md/mdMessages/BasicSafetyMessage_m.h"
+
 using veins::AnnotationManager;
 using veins::AnnotationManagerAccess;
 using veins::TraCICommandInterface;
@@ -43,6 +45,7 @@ using veins::FindModule;
 using veins::VeinsInetMobility;
 using veins::VeinsInetManager;
 
+using veins::BasicSafetyMessage;
 
 class Mode4F2MD : public Mode4BaseF2MD {
 
@@ -51,40 +54,19 @@ public:
 
     void receiveSignal(cComponent* source, simsignal_t signalID, cObject* obj, cObject* details) override;
 
+    void initialize(int stage);
+    void finish();
+
+    enum DemoApplMessageKinds {
+        SEND_ALERT_EVT,
+        SEND_BEACON_EVT
+    };
 
 protected:
-    //sender
-    int size_;
-    int nextSno_;
-    int priority_;
-    int duration_;
-    simtime_t period_;
-
-    simsignal_t sentMsg_;
-    simsignal_t delay_;
-    simsignal_t rcvdMsg_;
-    simsignal_t cbr_;
-
-    cMessage *selfSender_;
-
-    LteBinder* binder_;
-    MacNodeId nodeId_;
 
    int numInitStages() const { return inet::NUM_INIT_STAGES; }
 
-   /**
-    * Grabs NED parameters, initializes gates
-    * and the TTI self message
-    */
-   void initialize(int stage);
-
    void handleLowerMessage(cMessage* msg);
-
-
-   /**
-    * Statistics recording
-    */
-   void finish();
 
    /**
     * Main loop of the Mac level, calls the scheduler
@@ -103,6 +85,36 @@ protected:
 
    /** @brief this function is called every time the vehicle receives a position update signal */
    virtual void handlePositionUpdate(cObject* obj);
+   /** @brief this function is called upon receiving a DemoSafetyMessage, also referred to as a beacon  */
+   virtual void onBSM(BasicSafetyMessage* bsm){};
+   /** @brief sets all the necessary fields in the WSM, BSM, or WSA. */
+   virtual void populateWSM(BasicSafetyMessage* bsm);
+
+protected:
+    //sender
+    int size_;
+    int nextSno_;
+    int priority_;
+    int duration_;
+    simtime_t period_;
+
+    simsignal_t sentMsg_;
+    simsignal_t delay_;
+    simsignal_t rcvdMsg_;
+    simsignal_t cbr_;
+
+    /* BSM (beacon) settings */
+    uint32_t beaconLengthBits;
+    uint32_t beaconUserPriority;
+    simtime_t beaconInterval;
+    bool sendBeacons;
+
+    cMessage* sendBeaconEvt;
+    cMessage* sendAlertEvt;
+    bool sendAlerts;
+
+    LteBinder* binder_;
+    MacNodeId nodeId_;
 
 protected:
     /* pointers ill be set when used with TraCIMobility */
@@ -114,6 +126,8 @@ protected:
     veins::Coord curSpeed;
     veins::Coord curHeading;
     veins::Coord curAccel;
+
+
 
 };
 

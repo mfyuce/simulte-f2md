@@ -20,11 +20,18 @@ import lte.apps.mode4F2MD.Mode4BaseF2MD;
 simple Mode4F2MD like Mode4BaseF2MD
 {
     parameters:
+    	bool sendAlerts = default(true); //tell the applayer to periodically send beacons
         int packetSize = default(10); // Size of the actual packet itself
         int priority = default(3); // Priority of the packets sent
         int duration = default(1000); // MS before packet must be dropped
         double period @unit("s") = default(0.1s);
         int macNodeId = default(0);
+        
+        int headerLength = default(88bit) @unit(bit); //header length of the application
+        bool sendBeacons = default(true); //tell the applayer to periodically send beacons
+        int beaconLengthBits = default(256bit) @unit(bit); //the length of a beacon packet
+        int beaconUserPriority = default(7); //the user priority (UP) of the beacon messages
+        double beaconInterval = default(1s) @unit(s); //the intervall between 2 beacon messages
         
         @signal[sentMsg];
         @statistic[sentMsg](title="Messages sent"; unit=""; source="sentMsg"; record=sum,vector);

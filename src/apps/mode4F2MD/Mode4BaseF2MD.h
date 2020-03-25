@@ -26,8 +26,6 @@
 
 #include "common/LteCommon.h"
 
-#include "veins/base/modules/BaseApplLayer.h"
-
 class Mode4BaseF2MD : public cSimpleModule, public cListener {
 public:
 
