@@ -14,20 +14,21 @@
 //
 
 /**
- * Mode4F2MD is a new application developed to be used with Mode 4 based simulation
+ * F2MDBaseMode4Layer is a new application developed to be used with Mode 4 based simulation
  * Author: Brian McCarthy
  * Email: b.mccarthy@cs.ucc.ie
  */
 
-#include "apps/mode4F2MD/Mode4F2MD.h"
+#include "F2MDBaseMode4Layer.h"
+
 #include "common/LteControlInfo.h"
 #include "stack/phy/packet/cbr_m.h"
 
-Define_Module(Mode4F2MD);
+Define_Module(F2MDBaseMode4Layer);
 
-void Mode4F2MD::initialize(int stage)
+void F2MDBaseMode4Layer::initialize(int stage)
 {
-    Mode4BaseF2MD::initialize(stage);
+    Mode4BaseApp::initialize(stage);
     if (stage==inet::INITSTAGE_LOCAL){
         // initialize pointers to other modules
         if (FindModule<VeinsInetMobility*>::findSubModule(getParentModule())) {
@@ -99,25 +100,25 @@ void Mode4F2MD::initialize(int stage)
     }
 }
 
-void Mode4F2MD::handleLowerMessage(cMessage* msg)
+void F2MDBaseMode4Layer::handleLowerMessage(cMessage* msg)
 {
     if (msg->isName("CBR")) {
         Cbr* cbrPkt = check_and_cast<Cbr*>(msg);
         double channel_load = cbrPkt->getCbr();
-        emit(cbr_, channel_load);
         delete cbrPkt;
     } else {
         if(BasicSafetyMessage* bsm = dynamic_cast<BasicSafetyMessage*>(msg)){
             onBSM(bsm);
+            std::cout<< "final test " << bsm->getSenderAccel()<<"\n";
         }else if(AlertPacket* pkt = check_and_cast<AlertPacket*>(msg)){
             if (pkt == 0)
-                throw cRuntimeError("Mode4F2MD::handleMessage - FATAL! Error when casting to AlertPacket");
+                throw cRuntimeError("F2MDBaseMode4Layer::handleMessage - FATAL! Error when casting to AlertPacket");
             // emit statistics
             simtime_t delay = simTime() - pkt->getTimestamp();
             emit(delay_, delay);
             emit(rcvdMsg_, (long)1);
 
-            EV << "Mode4F2MD::handleMessage - Packet received: SeqNo[" << pkt->getSno() << "] Delay[" << delay << "]" << endl;
+            EV << "F2MDBaseMode4Layer::handleMessage - Packet received: SeqNo[" << pkt->getSno() << "] Delay[" << delay << "]" << endl;
 
             delete msg;
         }
@@ -126,7 +127,7 @@ void Mode4F2MD::handleLowerMessage(cMessage* msg)
     }
 }
 
-void Mode4F2MD::handleSelfMessage(cMessage* msg)
+void F2MDBaseMode4Layer::handleSelfMessage(cMessage* msg)
 {
     switch (msg->getKind()) {
     case SEND_BEACON_EVT: {
@@ -143,7 +144,7 @@ void Mode4F2MD::handleSelfMessage(cMessage* msg)
 
         bsm->setControlInfo(lteControlInfo);
 
-        Mode4BaseF2MD::sendLowerPackets(bsm);
+        Mode4BaseApp::sendLowerPackets(bsm);
         emit(sentMsg_, (long)1);
 
         scheduleAt(simTime() + beaconInterval, sendBeaconEvt);
@@ -168,14 +169,14 @@ void Mode4F2MD::handleSelfMessage(cMessage* msg)
 
         packet->setControlInfo(lteControlInfo);
 
-        Mode4BaseF2MD::sendLowerPackets(packet);
+        Mode4BaseApp::sendLowerPackets(packet);
         emit(sentMsg_, (long)1);
 
         scheduleAt(simTime() + period_, sendAlertEvt);
         break;
     }
     default: {
-        throw cRuntimeError("Mode4F2MD::handleMessage - Unrecognized self message");
+        throw cRuntimeError("F2MDBaseMode4Layer::handleMessage - Unrecognized self message");
         break;
     }
     }
@@ -183,7 +184,7 @@ void Mode4F2MD::handleSelfMessage(cMessage* msg)
 
 }
 
-void Mode4F2MD::receiveSignal(cComponent* source, simsignal_t signalID, cObject* obj, cObject* details)
+void F2MDBaseMode4Layer::receiveSignal(cComponent* source, simsignal_t signalID, cObject* obj, cObject* details)
 {
     Enter_Method_Silent();
     if (signalID == VeinsInetMobility::mobilityStateChangedSignal) {
@@ -191,7 +192,7 @@ void Mode4F2MD::receiveSignal(cComponent* source, simsignal_t signalID, cObject*
     }
 }
 
-void Mode4F2MD::handlePositionUpdate(cObject* obj)
+void F2MDBaseMode4Layer::handlePositionUpdate(cObject* obj)
 {
     curPosition = mobility->getVeinsPosition();
     curSpeed = mobility->getVeinsSpeed();
@@ -199,7 +200,7 @@ void Mode4F2MD::handlePositionUpdate(cObject* obj)
     curHeading = mobility->getVeinsHeading();
 }
 
-void Mode4F2MD::populateWSM(BasicSafetyMessage* bsm)
+void F2MDBaseMode4Layer::populateWSM(BasicSafetyMessage* bsm)
 {
     bsm->setRecipientAddress(veins::LAddress::L2BROADCAST());
     bsm->setBitLength(headerLength);
@@ -214,12 +215,12 @@ void Mode4F2MD::populateWSM(BasicSafetyMessage* bsm)
 }
 
 
-void Mode4F2MD::finish()
+void F2MDBaseMode4Layer::finish()
 {
     cancelAndDelete(sendAlertEvt);
 }
 
-Mode4F2MD::~Mode4F2MD()
+F2MDBaseMode4Layer::~F2MDBaseMode4Layer()
 {
     binder_->unregisterNode(nodeId_);
 }

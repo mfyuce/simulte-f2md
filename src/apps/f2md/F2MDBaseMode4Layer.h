@@ -14,15 +14,15 @@
 //
 
 /**
- * Mode4F2MD is a new application developed to be used with Mode 4 based simulation
+ * F2MDBaseMode4Layer is a new application developed to be used with Mode 4 based simulation
  * Author: Brian McCarthy
  * Email: b.mccarthy@cs.ucc.ie
  */
 
-#ifndef _LTE_Mode4F2MD_H_
-#define _LTE_Mode4F2MD_H_
+#ifndef _LTE_F2MDBaseMode4Layer_H_
+#define _LTE_F2MDBaseMode4Layer_H_
 
-#include "apps/mode4F2MD/Mode4BaseF2MD.h"
+#include "apps/mode4App/Mode4BaseApp.h"
 #include "apps/alert/AlertPacket_m.h"
 #include "corenetwork/binder/LteBinder.h"
 
@@ -47,10 +47,10 @@ using veins::VeinsInetManager;
 
 using veins::BasicSafetyMessage;
 
-class Mode4F2MD : public Mode4BaseF2MD {
+class F2MDBaseMode4Layer : public Mode4BaseApp, public cListener {
 
 public:
-    ~Mode4F2MD() override;
+    ~F2MDBaseMode4Layer() override;
 
     void receiveSignal(cComponent* source, simsignal_t signalID, cObject* obj, cObject* details) override;
 

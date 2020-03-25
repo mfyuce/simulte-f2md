@@ -14,10 +14,10 @@
 //
 
 
-package lte.apps.mode4F2MD;
-import lte.apps.mode4F2MD.Mode4BaseF2MD;
+package lte.apps.f2md;
+import lte.apps.mode4App.Mode4BaseApp;
 
-simple Mode4F2MD like Mode4BaseF2MD
+simple F2MDBaseMode4Layer like Mode4BaseApp
 {
     parameters:
     	bool sendAlerts = default(true); //tell the applayer to periodically send beacons
