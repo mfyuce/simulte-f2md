@@ -235,7 +235,7 @@ void JosephVeinsMode4::initialize(int stage) {
         myPcType = params.PC_TYPE;
         pseudoNum = 0;
 
-        pcPolicy = PCPolicy(mobility->getVeinsPosition(), &params);
+        pcPolicy = PCPolicy(veins::Coord(mobility->getCurrentPosition().x,mobility->getCurrentPosition().y,mobility->getCurrentPosition().z), &params);
 
         pcPolicy.setMbType(myMdType);
         pcPolicy.setMdAuthority(&mdStats);
@@ -1397,6 +1397,12 @@ void JosephVeinsMode4::handlePositionUpdate(cObject *obj) {
             &ConfPosMax, &ConfSpeedMax, &ConfHeadMax, &ConfAccelMax,
             &deltaConfPos, &deltaConfSpeed, &deltaConfHead, &deltaConfAccel);
 
+    veins::Coord tempPosition = veins::Coord(mobility->getCurrentPosition().x,mobility->getCurrentPosition().y,mobility->getCurrentPosition().z);
+    veins::Coord tempSpeed = veins::Coord(mobility->getCurrentSpeed().x,mobility->getCurrentSpeed().y,mobility->getCurrentSpeed().z);
+    veins::Coord tempAccel = veins::Coord(mobility->getCurrentAcceleration().x,mobility->getCurrentAcceleration().y,mobility->getCurrentAcceleration().z);
+    veins::Coord tempHeading = veins::Coord(cos(-mobility->getCurrentAngularPosition().alpha), -sin(-mobility->getCurrentAngularPosition().alpha));
+
+
     if (params.veremiConf) {
         double posEtx = genLib.GaussianRandomDouble(
                 (curPositionConfidence.x + curPositionConfidenceOrig.x) / 2,
@@ -1435,12 +1441,10 @@ void JosephVeinsMode4::handlePositionUpdate(cObject *obj) {
                 &deltaRPosition, &deltaThetaPosition, &deltaSpeed,
                 &deltaHeading, &deltaAccel);
 
-        curPosition = relativeOffset.OffsetPosition(
-                mobility->getVeinsPosition());
-        curSpeed = relativeOffset.OffsetSpeed(mobility->getVeinsSpeed());
-        curHeading = relativeOffset.OffsetHeading(
-                mobility->getVeinsHeading());
-        curAccel = relativeOffset.OffsetAccel(mobility->getVeinsAccel());
+        curPosition = relativeOffset.OffsetPosition(tempPosition);
+        curSpeed = relativeOffset.OffsetSpeed(tempSpeed);
+        curHeading = relativeOffset.OffsetHeading(tempHeading);
+        curAccel = relativeOffset.OffsetAccel(tempAccel);
 
     } else {
         curPositionConfidence = relativeOffsetConfidence.OffsetPosConf(
@@ -1460,12 +1464,10 @@ void JosephVeinsMode4::handlePositionUpdate(cObject *obj) {
         //    GaussianRandom relativeOffset = GaussianRandom(&curPositionConfidence,
         //            &curSpeedConfidence, &curHeadingConfidence);
 
-        curPosition = relativeOffset.OffsetPosition(
-                mobility->getVeinsPosition());
-        curSpeed = relativeOffset.OffsetSpeed(mobility->getVeinsSpeed());
-        curHeading = relativeOffset.OffsetHeading(
-                mobility->getVeinsHeading());
-        curAccel = relativeOffset.OffsetAccel(mobility->getVeinsAccel());
+        curPosition = relativeOffset.OffsetPosition(tempPosition);
+        curSpeed = relativeOffset.OffsetSpeed(tempSpeed);
+        curHeading = relativeOffset.OffsetHeading(tempHeading);
+        curAccel = relativeOffset.OffsetAccel(tempAccel);
     }
 
     if (params.writeVeReMi) {

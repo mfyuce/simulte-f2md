@@ -196,10 +196,10 @@ void F2MDBaseMode4Layer::receiveSignal(cComponent* source, simsignal_t signalID,
 
 void F2MDBaseMode4Layer::handlePositionUpdate(cObject* obj)
 {
-    curPosition = mobility->getVeinsPosition();
-    curSpeed = mobility->getVeinsSpeed();
-    curAccel = mobility->getVeinsAccel();
-    curHeading = mobility->getVeinsHeading();
+    curPosition = veins::Coord(mobility->getCurrentPosition().x,mobility->getCurrentPosition().y,mobility->getCurrentPosition().z);
+    curSpeed = veins::Coord(mobility->getCurrentSpeed().x,mobility->getCurrentSpeed().y,mobility->getCurrentSpeed().z);
+    curAccel = veins::Coord(mobility->getCurrentAcceleration().x,mobility->getCurrentAcceleration().y,mobility->getCurrentAcceleration().z);
+    curHeading = veins::Coord(cos(-mobility->getCurrentAngularPosition().alpha), -sin(-mobility->getCurrentAngularPosition().alpha));
 }
 
 void F2MDBaseMode4Layer::populateBSM(BasicSafetyMessage* bsm)
