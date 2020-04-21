@@ -10,7 +10,7 @@ cleanall: checkmakefiles
 	@rm -f src/Makefile
 
 makefiles:
-	@cd src && opp_makemake --make-so -f --deep -o lte -O out -KINET_PROJ=../../inet -KVEINS_PROJ=../../veins-f2md -KVEINS_INET_PROJ=../../veins-f2md/subprojects/veins_inet3 -DINET_IMPORT -DVEINS_IMPORT -DVEINS_INET_IMPORT -I. -I$$\(INET_PROJ\)/src -I$$\(VEINS_PROJ\)/src -I$$\(VEINS_INET_PROJ\)/src -L$$\(INET_PROJ\)/out/$$\(CONFIGNAME\)/src -L$$\(VEINS_PROJ\)/src -L$$\(VEINS_INET_PROJ\)/src -lINET -lveins
+	@cd src && opp_makemake --make-so -f --deep -o lte -O out -KINET_PROJ=../../inet -KVEINS_PROJ=../../veins-f2md -KVEINS_INET_PROJ=../../veins-f2md/subprojects/veins_inet3 -DINET_IMPORT -DVEINS_PROJ -DVEINS_INET_PROJ -I. -I$$\(INET_PROJ\)/src -I$$\(VEINS_PROJ\)/src -I$$\(VEINS_INET_PROJ\)/src -L$$\(INET_PROJ\)/out/$$\(CONFIGNAME\)/src -L$$\(VEINS_PROJ\)/out/$$\(CONFIGNAME\)/src -L$$\(VEINS_INET_PROJ\)/out/$$\(CONFIGNAME\)/src -lINET -lveins -lveins_inet
 
 checkmakefiles:
 	@if [ ! -f src/Makefile ]; then \
