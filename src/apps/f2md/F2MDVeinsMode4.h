@@ -34,7 +34,7 @@ using namespace veins;
 #include <veins/modules/application/f2md/mdApplications/AggregationApp.h>
 #include <veins/modules/application/f2md/mdApplications/BehavioralApp.h>
 #include <veins/modules/application/f2md/mdApplications/CooperativeApp.h>
-#include <veins/modules/application/f2md/mdApplications/PyBridgeApp.h>
+#include <veins/modules/application/f2md/mdApplications/MachineLearningApp.h>
 #include <veins/modules/application/f2md/mdApplications/ExperiApp.h>
 
 #include <veins/modules/application/f2md/mdSupport/VarThrePrintable.h>
@@ -178,8 +178,8 @@ protected:
     ExperiApp ExperV1 = ExperiApp(1, 10.0, 10, 3);
     ExperiApp ExperV2 = ExperiApp(2, 10.0, 10, 3);
 
-    PyBridgeApp PybgV1 = PyBridgeApp(1, mlPortV1, mlHostV1);
-    PyBridgeApp PybgV2 = PyBridgeApp(2, mlPortV2, mlHostV2);
+    MachineLearningApp PybgV1 = MachineLearningApp(1, mlPortV1, mlHostV1);
+    MachineLearningApp PybgV2 = MachineLearningApp(2, mlPortV2, mlHostV2);
 
     ProtocolEnforcer reportProtocolEnforcerV1 = ProtocolEnforcer();
     ProtocolEnforcer reportProtocolEnforcerV2 = ProtocolEnforcer();

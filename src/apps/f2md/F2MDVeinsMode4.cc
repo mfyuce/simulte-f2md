@@ -193,6 +193,13 @@ void JosephVeinsMode4::initialize(int stage) {
 
         reportProtocolEnforcerV1.setParams(&params);
         reportProtocolEnforcerV2.setParams(&params);
+
+        //mkdir savePath
+        struct stat info;
+        if ((stat(params.savePath.c_str(), &info) != 0) || !(info.st_mode & S_IFDIR)) {
+            mkdir(params.savePath.c_str(), 0777);
+        }
+
         // F2MD init
 
     } else if (stage == 1) {
@@ -493,7 +500,7 @@ void JosephVeinsMode4::setMDApp(mdAppTypes::App appTypeV1,
     case mdAppTypes::ExperiApp:
         AppV1 = &ExperV1;
         break;
-    case mdAppTypes::PyBridgeApp:
+    case mdAppTypes::MachineLearningApp:
         AppV1 = &PybgV1;
         PybgV1.setMyId(myId);
         break;
@@ -517,7 +524,7 @@ void JosephVeinsMode4::setMDApp(mdAppTypes::App appTypeV1,
     case mdAppTypes::ExperiApp:
         AppV2 = &ExperV2;
         break;
-    case mdAppTypes::PyBridgeApp:
+    case mdAppTypes::MachineLearningApp:
         AppV2 = &PybgV2;
         PybgV2.setMyId(myId);
         break;
