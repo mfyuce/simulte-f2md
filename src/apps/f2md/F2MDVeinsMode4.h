@@ -66,6 +66,8 @@ using namespace std::chrono;
 
 #include <veins/modules/application/f2md/F2MDParameters.h>
 
+#include <unordered_map>
+
 #define mlHostV1 "localhost"
 #define mlHostV2 "localhost"
 #define mlPortV1 9997
@@ -80,6 +82,8 @@ static double accusedClearTime = 0;
 
 static bool linkInit = false;
 static LinkControl linkControl = LinkControl();
+
+static std::unordered_map<LAddress::L2Type, veins::Coord> realDynamicMap;
 
 static bool setDate = false;
 static std::string curDate;

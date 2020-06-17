@@ -101,6 +101,10 @@ void JosephVeinsMode4::initialize(int stage) {
         //Simulation Parameters
 
         // ------ Detection Parameters -- Start
+        params.MAX_PROXIMITY_RANGE_L = par("MAX_PROXIMITY_RANGE_L");
+        params.MAX_PROXIMITY_RANGE_W = par("MAX_PROXIMITY_RANGE_W");
+        params.MAX_PROXIMITY_DISTANCE = par("MAX_PROXIMITY_DISTANCE");
+
         params.MAX_CONFIDENCE_RANGE = par("MAX_CONFIDENCE_RANGE");
         params.MAX_PLAUSIBLE_RANGE = par("MAX_PLAUSIBLE_RANGE");
         params.MAX_TIME_DELTA = par("MAX_TIME_DELTA");
@@ -473,6 +477,8 @@ void JosephVeinsMode4::initialize(int stage) {
 
 void JosephVeinsMode4::finish() {
 
+    realDynamicMap.erase(myId);
+
     if (myReportType == reportTypes::ProtocolReport) {
         handleReportProtocol(true);
     }
@@ -668,7 +674,7 @@ void JosephVeinsMode4::LocalMisbehaviorDetection(BasicSafetyMessage *bsm,
             LegacyChecks mdm(version, myPseudonym, curPosition, curSpeed,
                     curHeading, veins::Coord(myWidth, myLength),
                     veins::Coord(MAX_PLAUSIBLE_SPEED, MAX_PLAUSIBLE_ACCEL,
-                            MAX_PLAUSIBLE_DECEL), &linkControl, &params);
+                            MAX_PLAUSIBLE_DECEL), &linkControl, &realDynamicMap, myId, &params);
             bsmCheckV1 = mdm.CheckBSM(bsm, &detectedNodes);
         }
             break;
@@ -677,7 +683,7 @@ void JosephVeinsMode4::LocalMisbehaviorDetection(BasicSafetyMessage *bsm,
                     curPositionConfidence, curHeading, curHeadingConfidence,
                     veins::Coord(myWidth, myLength),
                     veins::Coord(MAX_PLAUSIBLE_SPEED, MAX_PLAUSIBLE_ACCEL,
-                            MAX_PLAUSIBLE_DECEL), &linkControl, &params);
+                            MAX_PLAUSIBLE_DECEL), &linkControl, &realDynamicMap, myId, &params);
             bsmCheckV1 = mdm.CheckBSM(bsm, &detectedNodes);
         }
             break;
@@ -686,7 +692,7 @@ void JosephVeinsMode4::LocalMisbehaviorDetection(BasicSafetyMessage *bsm,
                     curPositionConfidence, curHeading, curHeadingConfidence,
                     veins::Coord(myWidth, myLength),
                     veins::Coord(MAX_PLAUSIBLE_SPEED, MAX_PLAUSIBLE_ACCEL,
-                            MAX_PLAUSIBLE_DECEL), &linkControl, &params);
+                            MAX_PLAUSIBLE_DECEL), &linkControl, &realDynamicMap, myId, &params);
             bsmCheckV1 = mdm.CheckBSM(bsm, &detectedNodes);
         }
             break;
@@ -694,7 +700,7 @@ void JosephVeinsMode4::LocalMisbehaviorDetection(BasicSafetyMessage *bsm,
             LegacyChecks mdm(version, myPseudonym, curPosition, curSpeed,
                     curHeading, veins::Coord(myWidth, myLength),
                     veins::Coord(MAX_PLAUSIBLE_SPEED, MAX_PLAUSIBLE_ACCEL,
-                            MAX_PLAUSIBLE_DECEL), &linkControl, &params);
+                            MAX_PLAUSIBLE_DECEL), &linkControl, &realDynamicMap, myId, &params);
             bsmCheckV1 = mdm.CheckBSM(bsm, &detectedNodes);
         }
             break;
@@ -819,7 +825,7 @@ void JosephVeinsMode4::LocalMisbehaviorDetection(BasicSafetyMessage *bsm,
             LegacyChecks mdm(version, myPseudonym, curPosition, curSpeed,
                     curHeading, veins::Coord(myWidth, myLength),
                     veins::Coord(MAX_PLAUSIBLE_SPEED, MAX_PLAUSIBLE_ACCEL,
-                            MAX_PLAUSIBLE_DECEL), &linkControl, &params);
+                            MAX_PLAUSIBLE_DECEL), &linkControl, &realDynamicMap, myId, &params);
             bsmCheckV2 = mdm.CheckBSM(bsm, &detectedNodes);
         }
             break;
@@ -828,7 +834,7 @@ void JosephVeinsMode4::LocalMisbehaviorDetection(BasicSafetyMessage *bsm,
                     curPositionConfidence, curHeading, curHeadingConfidence,
                     veins::Coord(myWidth, myLength),
                     veins::Coord(MAX_PLAUSIBLE_SPEED, MAX_PLAUSIBLE_ACCEL,
-                            MAX_PLAUSIBLE_DECEL), &linkControl, &params);
+                            MAX_PLAUSIBLE_DECEL), &linkControl, &realDynamicMap, myId, &params);
             bsmCheckV2 = mdm.CheckBSM(bsm, &detectedNodes);
         }
             break;
@@ -837,7 +843,7 @@ void JosephVeinsMode4::LocalMisbehaviorDetection(BasicSafetyMessage *bsm,
                     curPositionConfidence, curHeading, curHeadingConfidence,
                     veins::Coord(myWidth, myLength),
                     veins::Coord(MAX_PLAUSIBLE_SPEED, MAX_PLAUSIBLE_ACCEL,
-                            MAX_PLAUSIBLE_DECEL), &linkControl, &params);
+                            MAX_PLAUSIBLE_DECEL), &linkControl, &realDynamicMap, myId, &params);
             bsmCheckV2 = mdm.CheckBSM(bsm, &detectedNodes);
         }
             break;
@@ -845,7 +851,7 @@ void JosephVeinsMode4::LocalMisbehaviorDetection(BasicSafetyMessage *bsm,
             LegacyChecks mdm(version, myPseudonym, curPosition, curSpeed,
                     curHeading, veins::Coord(myWidth, myLength),
                     veins::Coord(MAX_PLAUSIBLE_SPEED, MAX_PLAUSIBLE_ACCEL,
-                            MAX_PLAUSIBLE_DECEL), &linkControl, &params);
+                            MAX_PLAUSIBLE_DECEL), &linkControl, &realDynamicMap, myId, &params);
             bsmCheckV2 = mdm.CheckBSM(bsm, &detectedNodes);
         }
             break;
@@ -1399,6 +1405,8 @@ void JosephVeinsMode4::handleReportProtocol(bool lastTimeStep) {
 }
 void JosephVeinsMode4::handlePositionUpdate(cObject *obj) {
     F2MDBaseMode4Layer::handlePositionUpdate(obj);
+
+    realDynamicMap[myId] = veins::Coord(mobility->getCurrentPosition().x,mobility->getCurrentPosition().y,mobility->getCurrentPosition().z);
 
     RelativeOffsetConf relativeOffsetConfidence = RelativeOffsetConf(
             &ConfPosMax, &ConfSpeedMax, &ConfHeadMax, &ConfAccelMax,
