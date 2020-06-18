@@ -96,6 +96,10 @@ simple JosephVeinsMode4 extends F2MDBaseMode4Layer
     bool enableVarThreV2 = default(false);
 
     // ------ Detection Parameters -- Start 
+    double MAX_PROXIMITY_RANGE_L = default(30);
+    double MAX_PROXIMITY_RANGE_W = default(3);
+    double MAX_PROXIMITY_DISTANCE = default(2);
+    
     double MAX_CONFIDENCE_RANGE = default(10);
     double MAX_PLAUSIBLE_RANGE = default(420);
    	double MAX_TIME_DELTA = default(3.1);
