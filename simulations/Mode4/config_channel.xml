@@ -5,13 +5,13 @@
         	<!-- Enable/disable shadowing -->       
             <parameter name="shadowing" type="bool" value="true"/>
             <!-- Pathloss scenario from ITU -->   
-            <parameter name="scenario" type="string" value="WINNER"/>
+            <parameter name="scenario" type="string" value="ANALYTICAL"/>
             <!-- eNodeB height -->
             <parameter name="nodeb-height" type="double" value="25"/>
             <!-- Building height -->
             <parameter name="building-height" type="double" value="20"/> 
             <!-- Carrier Frequency (GHz) -->
-            <parameter name="carrierFrequency" type="double" value="6"/>
+            <parameter name="carrierFrequency" type="double" value="5.91e9"/>
             <!-- Target bler used to compute feedback -->
             <parameter name="targetBler" type="double" value="0.001"/>
             <!-- HARQ reduction -->
@@ -27,7 +27,7 @@
             <!-- Antenna Gain of Micro node -->
             <parameter name="antennGainMicro" type="double" value="5"/>
 			<!-- Thermal Noise for 10 MHz of Bandwidth -->
-            <parameter name="thermalNoise" type="double" value="-104.5"/>
+            <parameter name="thermalNoise" type="double" value="-174.0"/>
             <!-- Ue noise figure -->
             <parameter name="ue-noise-figure" type="double" value="9"/>
             <!-- eNodeB noise figure -->

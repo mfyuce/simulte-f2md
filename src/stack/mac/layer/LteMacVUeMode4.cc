@@ -65,6 +65,8 @@ void LteMacVUeMode4::initialize(int stage)
         reselectAfter_ = par("reselectAfter");
         useCBR_ = par("useCBR");
         packetDropping_ = par("packetDropping");
+        adjacencyPSCCHPSSCH_ = par("adjacencyPSCCHPSSCH");
+        randomScheduling_ = par("randomScheduling");
         maximumCapacity_ = 0;
         cbr_=0;
         currentCw_=0;
@@ -72,9 +74,12 @@ void LteMacVUeMode4::initialize(int stage)
 
         expiredGrant_ = false;
 
+        currentCbrIndex_ = defaultCbrIndex_;
+
         // Register the necessary signals for this simulation
 
         grantStartTime          = registerSignal("grantStartTime");
+        takingReservedGrant     = registerSignal("takingReservedGrant");
         grantBreak              = registerSignal("grantBreak");
         grantBreakTiming        = registerSignal("grantBreakTiming");
         grantBreakSize          = registerSignal("grantBreakSize");
@@ -88,6 +93,8 @@ void LteMacVUeMode4::initialize(int stage)
         grantRequests           = registerSignal("grantRequests");
         packetDropDCC           = registerSignal("packetDropDCC");
         macNodeID               = registerSignal("macNodeID");
+        rrcSelected             = registerSignal("resourceReselectionCounter");
+        retainGrant             = registerSignal("retainGrant");
     }
     else if (stage == inet::INITSTAGE_NETWORK_LAYER_3)
     {
@@ -277,6 +284,13 @@ void LteMacVUeMode4::parseCbrTxConfig(cXMLElement* xmlConfig)
         }
         else
             cbrMap.insert({"allowedRetxNumberPSSCH",  par("allowedRetxNumberPSSCH")});
+        it = cbrParams.find("allowedRRI");
+        if (it != cbrParams.end())
+        {
+            cbrMap.insert({"allowedRRI",  it->second});
+        }
+        else
+            cbrMap.insert({"allowedRRI",  resourceReservationInterval_});
         it = cbrParams.find("cr-Limit");
         if (it != cbrParams.end())
         {
@@ -501,6 +515,43 @@ UserTxParams* LteMacVUeMode4::getPreconfiguredTxParams()
     return txParams;
 }
 
+double LteMacVUeMode4::calculateChannelOccupancyRatio(int period){
+    int b;
+    int a;
+    int subchannelsUsed = 0;
+    // CR limit calculation
+    // determine b
+    if (schedulingGrant_ != NULL){
+        LteMode4SchedulingGrant* mode4Grant = check_and_cast<LteMode4SchedulingGrant*>(schedulingGrant_);
+        if (expirationCounter_ > 499){
+            b = 499;
+        } else {
+            b = expirationCounter_;
+        }
+        subchannelsUsed += (b / period) * mode4Grant->getNumSubchannels();
+    } else {
+        b = 0;
+    }
+    // determine a
+    a = 999 - b;
+
+    // determine previous transmissions -> Need to account for if we have already done a drop. Must maintain a
+    // history of past transmissions i.e. subchannels used and subframe in which they occur. delete entries older
+    // than 1000.
+    std::unordered_map<double, int>::const_iterator it = previousTransmissions_.begin();
+    while (it != previousTransmissions_.end()){
+        if (it->first < NOW.dbl() - 1){
+            it = previousTransmissions_.erase(it);
+            continue;
+        } else if (it->first > NOW.dbl() - (0.001 * a)) {
+            subchannelsUsed += it->second;
+        }
+        it++;
+    }
+    // calculate cr
+    return subchannelsUsed /(numSubchannels_ * 1000.0);
+}
+
 void LteMacVUeMode4::handleMessage(cMessage *msg)
 {
     if (msg->isSelfMessage())
@@ -532,9 +583,7 @@ void LteMacVUeMode4::handleMessage(cMessage *msg)
             Cbr* cbrPkt = check_and_cast<Cbr*>(pkt);
             cbr_ = cbrPkt->getCbr();
 
-            currentCbrIndex_ = defaultCbrIndex_;
-            if (useCBR_)
-            {
+            if (useCBR_) {
                 std::vector<std::unordered_map<std::string, double>>::iterator it;
                 for (it = cbrLevels_.begin(); it!=cbrLevels_.end(); it++)
                 {
@@ -563,38 +612,11 @@ void LteMacVUeMode4::handleMessage(cMessage *msg)
                 }
             }
 
-            int b;
-            int a;
-            int subchannelsUsed = 0;
-            // CR limit calculation
-            // determine b
+            int period = 0;
             if (schedulingGrant_ != NULL){
-                if (expirationCounter_ > 499){
-                    b = 499;
-                } else {
-                    b = expirationCounter_;
-                }
-                subchannelsUsed += b / schedulingGrant_->getPeriod();
-            } else {
-                b = 0;
+                period = schedulingGrant_->getPeriod();
             }
-            // determine a
-            a = 999 - b;
-
-            // determine previous transmissions -> Need to account for if we have already done a drop. Must maintain a
-            // history of past transmissions i.e. subchannels used and subframe in which they occur. delete entries older
-            // than 1000.
-            std::unordered_map<double, int>::const_iterator it = previousTransmissions_.begin();
-            while (it != previousTransmissions_.end()){
-                if (it->first < NOW.dbl() - 1){
-                    it = previousTransmissions_.erase(it);
-                } else if (it->first > NOW.dbl() - (0.1 * a)) {
-                    subchannelsUsed += it->second;
-                    it++;
-                }
-            }
-            // calculate cr
-            channelOccupancyRatio_ = subchannelsUsed /(numSubchannels_ * 1000.0);
+            channelOccupancyRatio_ = calculateChannelOccupancyRatio(period);
 
             // message from PHY_to_MAC gate (from lower layer)
             emit(receivedPacketFromLowerLayer, pkt);
@@ -611,21 +633,18 @@ void LteMacVUeMode4::handleMessage(cMessage *msg)
             FlowControlInfoNonIp* lteInfo = check_and_cast<FlowControlInfoNonIp*>(pkt->removeControlInfo());
             receivedTime_ = NOW;
             simtime_t elapsedTime = receivedTime_ - lteInfo->getCreationTime();
-            simtime_t duration = SimTime(lteInfo->getDuration(), SIMTIME_MS);
-            duration = duration - elapsedTime;
-            double dur = duration.dbl();
-            remainingTime_ = lteInfo->getDuration() - dur;
+            remainingTime_ = lteInfo->getDuration() - (elapsedTime.dbl() * 1000);
 
-            if (schedulingGrant_ != NULL && periodCounter_ > remainingTime_)
+            if (schedulingGrant_ == NULL)
+            {
+                macGenerateSchedulingGrant(remainingTime_, lteInfo->getPriority(), pkt->getBitLength());
+            }
+            else if ((schedulingGrant_ != NULL && periodCounter_ > remainingTime_))
             {
                 emit(grantBreakTiming, 1);
                 delete schedulingGrant_;
                 schedulingGrant_ = NULL;
-                macGenerateSchedulingGrant(remainingTime_, lteInfo->getPriority());
-            }
-            else if (schedulingGrant_ == NULL)
-            {
-                macGenerateSchedulingGrant(remainingTime_, lteInfo->getPriority());
+                macGenerateSchedulingGrant(remainingTime_, lteInfo->getPriority(), pkt->getBitLength());
             }
             else
             {
@@ -667,6 +686,14 @@ void LteMacVUeMode4::handleSelfMessage()
         }
     }
 
+    unsigned int purged =0;
+    // purge from corrupted PDUs all Rx H-HARQ buffers
+    for (hit= harqRxBuffers_.begin(); hit != het; ++hit)
+    {
+        purged += hit->second->purgeCorruptedPdus();
+    }
+    EV << NOW << " LteMacVUeMode4::handleSelfMessage Purged " << purged << " PDUS" << endl;
+
     EV << NOW << "LteMacVUeMode4::handleSelfMessage " << nodeId_ << " - HARQ process " << (unsigned int)currentHarq_ << endl;
     // updating current HARQ process for next TTI
 
@@ -690,12 +717,21 @@ void LteMacVUeMode4::handleSelfMessage()
         {
             // Gotten to the point of the final tranmission must determine if we reselect or not.
             double randomReReserve = dblrand(1);
-            if (randomReReserve > probResourceKeep_)
+            if (randomReReserve < probResourceKeep_)
             {
-                int expiration = intuniform(5, 15, 3);
+                int expiration = 0;
+                if (resourceReservationInterval_ == 0.5){
+                    expiration = intuniform(10, 30, 3);
+                } else if (resourceReservationInterval_ == 0.2){
+                    expiration = intuniform(25, 75, 3);
+                } else {
+                    expiration = intuniform(5, 15, 3);
+                }
                 mode4Grant -> setResourceReselectionCounter(expiration);
                 mode4Grant -> setFirstTransmission(true);
                 expirationCounter_ = expiration * mode4Grant->getPeriod();
+                emit(rrcSelected, expiration);
+                emit(retainGrant, 1);
             }
         }
         if (--periodCounter_>0 && !mode4Grant->getFirstTransmission())
@@ -726,8 +762,6 @@ void LteMacVUeMode4::handleSelfMessage()
         {
             EV << "\t currentHarq_ counter initialized " << endl;
             firstTx=true;
-            // the eNb will receive the first pdu in 2 TTI, thus initializing acid to 0
-//            currentHarq_ = harqRxBuffers_.begin()->second->getProcesses() - 2;
             currentHarq_ = UE_TX_HARQ_PROCESSES - 2;
         }
         EV << "\t " << schedulingGrant_ << endl;
@@ -786,7 +820,6 @@ void LteMacVUeMode4::handleSelfMessage()
 
             if (!sent)
             {
-                // no data to send, but if bsrTriggered is set, send a BSR
                 macPduMake();
             }
 
@@ -820,17 +853,6 @@ void LteMacVUeMode4::handleSelfMessage()
     }
     //======================== END DEBUG ==========================
 
-    unsigned int purged =0;
-    // purge from corrupted PDUs all Rx H-HARQ buffers
-    for (hit= harqRxBuffers_.begin(); hit != het; ++hit)
-    {
-        // purge corrupted PDUs only if this buffer is for a DL transmission. Otherwise, if you
-        // purge PDUs for D2D communication, also "mirror" buffers will be purged
-        if (hit->first == cellId_)
-            purged += hit->second->purgeCorruptedPdus();
-    }
-    EV << NOW << " LteMacVUeMode4::handleSelfMessage Purged " << purged << " PDUS" << endl;
-
     if (!requestSdu)
     {
         // update current harq process id
@@ -849,14 +871,14 @@ void LteMacVUeMode4::macHandleSps(cPacket* pkt)
      * 4. return
      */
     SpsCandidateResources* candidatesPacket = check_and_cast<SpsCandidateResources *>(pkt);
-    std::vector<std::tuple<double, int, int>> CSRs = candidatesPacket->getCSRs();
+    std::vector<std::tuple<double, int, int, bool>> CSRs = candidatesPacket->getCSRs();
 
     LteMode4SchedulingGrant* mode4Grant = check_and_cast<LteMode4SchedulingGrant*>(schedulingGrant_);
 
     // Select random element from vector
     int index = intuniform(0, CSRs.size()-1, 1);
 
-    std::tuple<double, int, int> selectedCR = CSRs[index];
+    std::tuple<double, int, int, bool> selectedCR = CSRs[index];
     // Gives us the time at which we will send the subframe.
     simtime_t selectedStartTime = (simTime() + SimTime(std::get<1>(selectedCR), SIMTIME_MS) - TTI).trunc(SIMTIME_MS);
 
@@ -864,19 +886,40 @@ void LteMacVUeMode4::macHandleSps(cPacket* pkt)
 
     int initiailSubchannel = std::get<2>(selectedCR);
     int finalSubchannel = initiailSubchannel + mode4Grant->getNumSubchannels(); // Is this actually one additional subchannel?
+    bool reservedCSR = std::get<3>(selectedCR);
 
     // Emit statistic about the use of resources, i.e. the initial subchannel and it's length.
     emit(selectedSubchannelIndex, initiailSubchannel);
     emit(selectedNumSubchannels, mode4Grant->getNumSubchannels());
+    emit(takingReservedGrant, reservedCSR);
 
     // Determine the RBs on which we will send our message
     RbMap grantedBlocks;
     int totalGrantedBlocks = 0;
-    for (int i=initiailSubchannel;i<finalSubchannel;i++)
-    {
-        std::vector<Band> allocatedBands;
-        for (Band b = i * subchannelSize_; b < (i * subchannelSize_) + subchannelSize_ ; b++)
+    if (adjacencyPSCCHPSSCH_){
+        // Adjacent mode just provide the allocated bands
+
+        for (int i=initiailSubchannel;i<finalSubchannel;i++)
         {
+            int initialBand = i * subchannelSize_;
+            for (Band b = initialBand; b < initialBand + subchannelSize_ ; b++)
+            {
+                grantedBlocks[MACRO][b] = 1;
+                ++totalGrantedBlocks;
+            }
+        }
+    } else {
+        // Start at subchannel numsubchannels.
+        // Remove 1 subchannel from each grant.
+        // Account for the two blocks taken for the SCI
+        int initialBand;
+        if (initiailSubchannel == 0){
+            // If first subchannel to use need to make sure to add the number of subchannels for the SCI messages
+            initialBand = numSubchannels_ * 2;
+        } else {
+            initialBand = (numSubchannels_ * 2) + (initiailSubchannel * (subchannelSize_ - 2));
+        }
+        for (Band b = initialBand; b < initialBand + (subchannelSize_ * mode4Grant->getNumSubchannels()) ; b++) {
             grantedBlocks[MACRO][b] = 1;
             ++totalGrantedBlocks;
         }
@@ -885,7 +928,7 @@ void LteMacVUeMode4::macHandleSps(cPacket* pkt)
     mode4Grant->setStartTime(selectedStartTime);
     mode4Grant->setPeriodic(true);
     mode4Grant->setGrantedBlocks(grantedBlocks);
-    mode4Grant->setTotalGrantedBlocks(totalGrantedBlocks);
+    mode4Grant->setTotalGrantedBlocks(totalGrantedBlocks); // account for the 2 RBs used for the sci message
     mode4Grant->setDirection(D2D_MULTI);
     mode4Grant->setCodewords(1);
     mode4Grant->setStartingSubchannel(initiailSubchannel);
@@ -919,7 +962,7 @@ void LteMacVUeMode4::macHandleSps(cPacket* pkt)
     delete pkt;
 }
 
-void LteMacVUeMode4::macGenerateSchedulingGrant(double maximumLatency, int priority)
+void LteMacVUeMode4::macGenerateSchedulingGrant(double maximumLatency, int priority, int pktSize)
 {
     /**
      * 1. Packet priority
@@ -932,6 +975,7 @@ void LteMacVUeMode4::macGenerateSchedulingGrant(double maximumLatency, int prior
     LteMode4SchedulingGrant* mode4Grant = new LteMode4SchedulingGrant("LteMode4Grant");
 
     // Priority is the most difficult part to figure out, for the moment I will assign it as a fixed value
+    mode4Grant -> setStartTime(NOW + 1000); // Just forces start time into future so we don't accidentally trigger it early
     mode4Grant -> setSpsPriority(priority);
     mode4Grant -> setPeriod(resourceReservationInterval_ * 100);
     mode4Grant -> setMaximumLatency(maximumLatency);
@@ -939,11 +983,19 @@ void LteMacVUeMode4::macGenerateSchedulingGrant(double maximumLatency, int prior
 
     int minSubchannelNumberPSSCH = minSubchannelNumberPSSCH_;
     int maxSubchannelNumberPSSCH = maxSubchannelNumberPSSCH_;
+    int minMCS = minMCSPSSCH_;
+    int maxMCS = maxMCSPSSCH_;
+    int numSubchannels = 0;
+    bool foundValidMCS = false;
+    double resourceReservationInterval = resourceReservationInterval_;
 
     if (useCBR_)
     {
         int cbrMinSubchannelNum;
         int cbrMaxSubchannelNum;
+        int cbrMinMCS;
+        int cbrMaxMCS;
+
         std::unordered_map<std::string,double> cbrMap = cbrPSSCHTxConfigList_.at(currentCbrIndex_);
 
         std::unordered_map<std::string,double>::const_iterator got = cbrMap.find("allowedRetxNumberPSSCH");
@@ -978,18 +1030,90 @@ void LteMacVUeMode4::macGenerateSchedulingGrant(double maximumLatency, int prior
             minSubchannelNumberPSSCH = max(minSubchannelNumberPSSCH_, cbrMinSubchannelNum);
             maxSubchannelNumberPSSCH = min(maxSubchannelNumberPSSCH_, cbrMaxSubchannelNum);
         }
+
+        got = cbrMap.find("minMCS-PSSCH");
+        if (got == cbrMap.end())
+            cbrMinMCS = minMCSPSSCH_;
+        else
+            cbrMinMCS = (int) got->second;
+
+        got = cbrMap.find("maxMCS-PSSCH");
+        if (got == cbrMap.end())
+            cbrMaxMCS = maxMCSPSSCH_;
+        else
+            cbrMaxMCS = (int) got->second;
+
+        if (maxMCSPSSCH_ < cbrMinMCS || cbrMaxMCS < minMCSPSSCH_) {
+            // No overlap therefore I will use the cbr values (this is left to the UE).
+            minMCS = cbrMinMCS;
+            maxMCS = cbrMaxMCS;
+        } else {
+            minMCS = max(minMCSPSSCH_, cbrMinMCS);
+            maxMCS = min(maxMCSPSSCH_, cbrMaxMCS);
+        }
     }
-    // Selecting the number of subchannel at random as there is no explanation as to the logic behind selecting the resources in the range unlike when selecting MCS.
-    int numSubchannels = intuniform(minSubchannelNumberPSSCH, maxSubchannelNumberPSSCH, 2);
+
+    // Select the number of subchannels based on the size of the packet to be transmitted
+    int i = minSubchannelNumberPSSCH;
+    while (i <= maxSubchannelNumberPSSCH && !foundValidMCS){
+        int totalGrantedBlocks = (i * subchannelSize_);
+        if (adjacencyPSCCHPSSCH_) {
+            totalGrantedBlocks -= 2; // 2 RBs for the sci in adjacent mode
+        }
+
+        int mcsCapacity = 0;
+        for (int mcs=minMCS; mcs <= maxMCS; mcs++) {
+            LteMod mod = _QPSK;
+            if (maxMCSPSSCH_ > 9 && maxMCSPSSCH_ < 17) {
+                mod = _16QAM;
+            } else if (maxMCSPSSCH_ > 16 && maxMCSPSSCH_ < 29) {
+                mod = _64QAM;
+            }
+
+            unsigned int j = (mod == _QPSK ? 0 : (mod == _16QAM ? 9 : (mod == _64QAM ? 15 : 0)));
+
+            const unsigned int *tbsVect = itbs2tbs(mod, SINGLE_ANTENNA_PORT0, 1, mcs - j);
+            mcsCapacity = tbsVect[totalGrantedBlocks - 1];
+
+            if (mcsCapacity > pktSize) {
+                foundValidMCS = true;
+                numSubchannels = i;
+                break;
+            }
+        }
+        i++;
+    }
+
+    if (!foundValidMCS){
+        throw cRuntimeError("On generating the grant there was no subchannel configuration which could hold the capacity of the packet: exiting.");
+    }
 
     mode4Grant -> setNumberSubchannels(numSubchannels);
+    if (randomScheduling_){
+        mode4Grant -> setResourceReselectionCounter(0);
+        mode4Grant -> setExpiration(0);
+        mode4Grant -> setPeriodic(false);
+        emit(rrcSelected, 0);
+    } else {
 
-    // Based on restrictResourceReservation interval But will be between 1 and 15
-    // Again technically this needs to reconfigurable as well. But all of that needs to come in through ini and such.
-    int resourceReselectionCounter = intuniform(5, 15, 3);
+        mode4Grant -> setPeriodic(true);
+        // Based on restrictResourceReservation interval But will be between 1 and 15
+        // Again technically this needs to reconfigurable as well. But all of that needs to come in through ini and such.
+        int resourceReselectionCounter = 0;
 
-    mode4Grant -> setResourceReselectionCounter(resourceReselectionCounter);
-    mode4Grant -> setExpiration(resourceReselectionCounter * resourceReservationInterval_);
+        if (resourceReservationInterval_ == 0.5) {
+            resourceReselectionCounter = intuniform(10, 30, 3);
+        } else if (resourceReservationInterval_ == 0.2) {
+            resourceReselectionCounter = intuniform(25, 75, 3);
+        } else {
+            resourceReselectionCounter = intuniform(5, 15, 3);
+        }
+
+        mode4Grant -> setResourceReselectionCounter(resourceReselectionCounter);
+        mode4Grant -> setExpiration(resourceReselectionCounter * resourceReservationInterval);
+        emit(rrcSelected, resourceReselectionCounter);
+    }
+
 
     LteMode4SchedulingGrant* phyGrant = mode4Grant->dup();
 
@@ -1016,6 +1140,14 @@ void LteMacVUeMode4::flushHarqBuffers()
     // But purge them once all messages sent.
 
     LteMode4SchedulingGrant* mode4Grant = dynamic_cast<LteMode4SchedulingGrant*>(schedulingGrant_);
+
+    int period = 0;
+    if (schedulingGrant_ != NULL){
+        period = schedulingGrant_->getPeriod();
+    }
+
+    // Ensure CR updated.
+    channelOccupancyRatio_ = calculateChannelOccupancyRatio(period);
 
     HarqTxBuffers::iterator it2;
     for(it2 = harqTxBuffers_.begin(); it2 != harqTxBuffers_.end(); it2++)
@@ -1044,7 +1176,7 @@ void LteMacVUeMode4::flushHarqBuffers()
             LteHarqProcessTx* selectedProcess = it2->second->getSelectedProcess();
             for (int cw=0; cw<MAX_CODEWORDS; cw++)
             {
-                int pduLength = selectedProcess->getPduLength(cw);
+                int pduLength = selectedProcess->getPduLength(cw) * 8;
                 int minMCS = minMCSPSSCH_;
                 int maxMCS = maxMCSPSSCH_;
                 if (pduLength > 0)
@@ -1145,9 +1277,8 @@ void LteMacVUeMode4::flushHarqBuffers()
                         // Never found an MCS to satisfy the requirements of the message must regenerate grant
                         LteMode4SchedulingGrant* mode4Grant = check_and_cast<LteMode4SchedulingGrant*>(schedulingGrant_);
                         int priority = mode4Grant->getSpsPriority();
-                        int latency = mode4Grant->getMaximumLatency();
                         simtime_t elapsedTime = NOW - receivedTime_;
-                        remainingTime_ -= elapsedTime.dbl();
+                        remainingTime_ -= (elapsedTime.dbl() * 1000);
 
                         emit(grantBreakSize, pduLength);
                         emit(maximumCapacity, mcsCapacity);
@@ -1163,7 +1294,7 @@ void LteMacVUeMode4::flushHarqBuffers()
                         {
                             delete schedulingGrant_;
                             schedulingGrant_ = NULL;
-                            macGenerateSchedulingGrant(remainingTime_, priority);
+                            macGenerateSchedulingGrant(remainingTime_, priority, pduLength);
                         }
                     }
                 }
@@ -1176,32 +1307,15 @@ void LteMacVUeMode4::flushHarqBuffers()
             ++missedTransmissions_;
             emit(missedTransmission, 1);
 
-            LteMode4SchedulingGrant* phyGrant = mode4Grant->dup();
-
-            UserControlInfo* uinfo = new UserControlInfo();
-            uinfo->setSourceId(getMacNodeId());
-            uinfo->setDestId(getMacNodeId());
-            uinfo->setFrameType(GRANTPKT);
-            uinfo->setTxNumber(1);
-            uinfo->setDirection(D2D_MULTI);
-            uinfo->setUserTxParams(preconfiguredTxParams_->dup());
-
-            phyGrant->setControlInfo(uinfo);
-
             if (missedTransmissions_ >= reselectAfter_)
             {
-                phyGrant->setPeriod(0);
-                phyGrant->setExpiration(0);
-
+                // Simply remove the grant next time we shall reschedule it.
                 delete schedulingGrant_;
                 schedulingGrant_ = NULL;
                 missedTransmissions_ = 0;
 
                 emit(grantBreakMissedTrans, 1);
             }
-
-            // Send Grant to PHY layer for sci creation
-            sendLowerPackets(phyGrant);
         }
     }
     if (expiredGrant_) {

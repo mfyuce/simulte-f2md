@@ -1,4 +1,4 @@
-// 
+//
 //                           SimuLTE
 // 
 // This file is part of a software released under the license included in file
@@ -383,7 +383,9 @@ simple LteMacVUeMode4 extends LteMacNonIPBase
 	    double probResourceKeep = default(0.4);
 	    bool useCBR = default(false);
 	    bool packetDropping = default(false);
-	    
+	    bool adjacencyPSCCHPSSCH = default(true);
+	    bool randomScheduling = default(false);
+
 	    bool usePreconfiguredTxParams = default(false);
 	    
 		// Signals 
@@ -398,6 +400,8 @@ simple LteMacVUeMode4 extends LteMacNonIPBase
 
 		@signal[grantStartTime];
 		@statistic[grantStartTime](title="Grant StartTime"; source="grantStartTime"; record=sum,vector);
+		@signal[takingReservedGrant];
+        @statistic[takingReservedGrant](title="takingReservedGrant"; source="takingReservedGrant"; record=mean,vector);
 		@signal[grantBreak];
         @statistic[grantBreak](title="Total Number of Grant breaks"; source="grantBreak"; record=sum,vector);
         @signal[grantBreakTiming];
@@ -422,9 +426,18 @@ simple LteMacVUeMode4 extends LteMacNonIPBase
         @statistic[grantRequests](title="Total number of requested grants"; source="grantRequests"; record=sum,vector);
         @signal[packetDropDCC];
         @statistic[packetDropDCC](title="Packet drop due to DCC mechanism"; source="packetDropDCC"; record=sum,vector);
+        @signal[resourceReselectionCounter];
+        @statistic[resourceReselectionCounter](title="ResourceReselectionCounter selectedNumber of transmissions"; source="resourceReselectionCounter"; record=sum,vector);
+        @signal[retainGrant];
+        @statistic[retainGrant](title="retainGrant if grant is maintained properly"; source="retainGrant"; record=sum,vector);
 
         @signal[macNodeID];
         @statistic[macNodeID](title="Reports Mac NodeID to allow for trans to nodeID"; source="macNodeID"; record=vector);
+}
+
+simple LteMacVUeMode4NonSPS extends LteMacVUeMode4
+{
+	@class("LteMacVUeMode4NonSPS");
 }
 
 //

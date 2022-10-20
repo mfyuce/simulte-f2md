@@ -30,62 +30,110 @@ class LtePhyVUeMode4 : public LtePhyUeD2D
     int subchannelSize_ ;
     int selectionWindowStartingSubframe_;
     int thresholdRSSI_;
+    int cbrCountDown_;
+    int sensingWindowSizeOverride_;
 
     bool transmitting_;
+    bool beginTransmission_;
+    bool randomScheduling_;
+    bool checkAwareness_;
+
+    bool rssiFiltering_;
+    bool rsrpFiltering_;
 
     std::map<MacNodeId, simtime_t> previousTransmissionTimes_;
 
     std::vector<int> ThresPSSCHRSRPvector_;
 
-    std::vector<LteAirFrame*> tbFrames_; // airframes received in the current TTI. Only one will be decoded
     cMessage* d2dDecodingTimer_; // timer for triggering decoding at the end of the TTI. Started when the first airframe is received
 
-    std::vector<std::vector<double>> tbRsrpVectors_;
-    std::vector<std::vector<double>> tbRssiVectors_;
+    std::vector<std::tuple<LteAirFrame*, std::vector<double>, std::vector<double>, std::vector<double>, double, double>> tbInfo_;
+
+    std::vector<std::tuple<LteAirFrame*, std::vector<double>, std::vector<double>, std::vector<double>, double, double>> sciInfo_;
 
     std::vector<std::vector<Subchannel*>> sensingWindow_;
     int sensingWindowFront_;
     LteMode4SchedulingGrant* sciGrant_;
-    std::vector<std::vector<double>> sciRsrpVectors_;
-    std::vector<std::vector<double>> sciRssiVectors_;
-    std::vector<LteAirFrame*> sciFrames_;
+
     std::vector<cPacket*> scis_;
 
-    simsignal_t cbr;
+    // SCI stats
+    simsignal_t sciSent;
+
     simsignal_t sciReceived;
     simsignal_t sciDecoded;
-    simsignal_t sciNotDecoded;
-    simsignal_t sciSent;
-    simsignal_t tbSent;
-    simsignal_t tbReceived;
-    simsignal_t tbDecoded;
-    simsignal_t tbFailedDueToNoSCI;
-    simsignal_t tbFailedButSCIReceived;
-    simsignal_t tbAndSCINotReceived;
+    simsignal_t csrReschedule;
+
     simsignal_t sciFailedHalfDuplex;
-    simsignal_t tbFailedHalfDuplex;
-    simsignal_t threshold;
+    simsignal_t sciFailedDueToProp;
+    simsignal_t sciFailedDueToInterference;
+    simsignal_t sciUnsensed;
+
     simsignal_t txRxDistanceSCI;
-    simsignal_t txRxDistanceTB;
-    simsignal_t subchannelReceived;
-    simsignal_t subchannelsUsed;
-    simsignal_t senderID;
-    simsignal_t subchannelSent;
-    simsignal_t subchannelsUsedToSend;
-    simsignal_t interPacketDelay;
-    simsignal_t posX;
-    simsignal_t posY;
 
     int sciReceived_;
     int sciDecoded_;
-    int sciNotDecoded_;
+
     int sciFailedHalfDuplex_;
+    int sciFailedDueToProp_;
+    int sciFailedDueToInterference_;
+    int sciUnsensed_;
+
+    // Tb Stats
+    simsignal_t tbSent;
+
+    simsignal_t tbReceived;
+    simsignal_t tbDecoded;
+    simsignal_t periodic;
+
+    simsignal_t tbFailedDueToNoSCI;
+    simsignal_t tbFailedButSCIReceived;
+    simsignal_t tbAndSCINotReceived;
+
+    simsignal_t tbFailedHalfDuplex;
+    simsignal_t tbFailedDueToProp;
+    simsignal_t tbFailedDueToInterference;
+
+    simsignal_t tbFailedDueToPropIgnoreSCI;
+    simsignal_t tbFailedDueToInterferenceIgnoreSCI;
+    simsignal_t tbDecodedIgnoreSCI;
+
+    simsignal_t txRxDistanceTB;
+
     int tbReceived_;
     int tbDecoded_;
     int tbFailedDueToNoSCI_;
     int tbFailedButSCIReceived_;
     int tbAndSCINotReceived_;
     int tbFailedHalfDuplex_;
+
+    int tbFailedDueToProp_;
+    int tbFailedDueToInterference_;
+
+
+    int tbFailedDueToPropIgnoreSCI_;
+    int tbFailedDueToInterferenceIgnoreSCI_;
+    int tbDecodedIgnoreSCI_;
+
+
+    // General stats
+    simsignal_t cbr;
+    simsignal_t cbrPscch;
+    simsignal_t threshold;
+    simsignal_t subchannelReceived;
+    simsignal_t subchannelsUsed;
+    simsignal_t senderID;
+    simsignal_t subchannelSent;
+    simsignal_t subchannelsUsedToSend;
+    simsignal_t interPacketDelay;
+
+    simsignal_t awareness1sStat;
+    simsignal_t awareness500msStat;
+    simsignal_t awareness200msStat;
+
+    simsignal_t posX;
+    simsignal_t posY;
+
     int subchannelReceived_;
     int subchannelsUsed_;
 
@@ -95,7 +143,7 @@ class LtePhyVUeMode4 : public LtePhyUeD2D
 
     void storeAirFrame(LteAirFrame* newFrame);
     LteAirFrame* extractAirFrame();
-    void decodeAirFrame(LteAirFrame* frame, UserControlInfo* lteInfo, std::vector<double> &rsrpVector, std::vector<double> &rssiVector);
+    void decodeAirFrame(LteAirFrame* frame, UserControlInfo* lteInfo, std::vector<double> &rsrpVector, std::vector<double> &rssiVector, std::vector<double> &sinrVector, double &attenuation);
     // ---------------------------------------------------------------- //
 
     virtual void initialize(int stage);
@@ -110,18 +158,28 @@ class LtePhyVUeMode4 : public LtePhyUeD2D
     // Generate an SCI message corresponding to a Grant
     virtual SidelinkControlInformation* createSCIMessage();
 
+    virtual RbMap sendSciMessage(cMessage* sci, UserControlInfo* lteInfo);
+
     // Compute Candidate Single Subframe Resources which the MAC layer can use for transmission
     virtual void computeCSRs(LteMode4SchedulingGrant* &grant);
 
+    virtual void computeRandomCSRs(LteMode4SchedulingGrant* &grant);
+
     virtual void updateSubframe();
 
-    virtual std::vector<std::tuple<double, int, int>> selectBestRSSIs(std::unordered_map<int, std::set<int>> possibleCSRs, LteMode4SchedulingGrant* &grant, int totalPossibleCSRs);
+    virtual std::vector<std::tuple<double, int, int, bool>> selectBestRSSIs(std::unordered_map<int, std::set<int>> possibleCSRs,
+            LteMode4SchedulingGrant* &grant, int totalPossibleCSRs, std::unordered_map<int, std::unordered_map<int, bool>> reservedCSRs);
+
+    virtual std::vector<std::tuple<double, int, int, bool>> selectBestRSRPs(std::unordered_map<int, std::set<int>> possibleCSRs,
+            LteMode4SchedulingGrant* &grant, int totalPossibleCSRs, std::unordered_map<int, std::unordered_map<int, bool>> reservedCSRs);
 
     virtual std::tuple<int,int> decodeRivValue(SidelinkControlInformation* sci, UserControlInfo* sciInfo);
 
     virtual void updateCBR();
 
-    virtual RbMap sendSciMessage(cMessage* sci, UserControlInfo* lteInfo);
+    virtual void recordAwareness();
+
+    virtual std::vector<MacNodeId> getNeighbours();
 
     virtual void initialiseSensingWindow();
 

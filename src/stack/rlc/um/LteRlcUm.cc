@@ -185,6 +185,7 @@ void LteRlcUm::initialize()
     down_[OUT] = gate("UM_Sap_down$o");
 
     packetSize_ = par("packetSize");
+    scenario3gpp_ = par("scenario3gpp");
 
     WATCH_MAP(txBuffers_);
     WATCH_MAP(rxBuffers_);

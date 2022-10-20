@@ -44,7 +44,7 @@ protected:
 
    // All of the following should be configurable by the OMNet++ ini file and maybe even taken from higher layers if that's possible.
    double probResourceKeep_;
-   int resourceReservationInterval_;
+   double resourceReservationInterval_;
    int minSubchannelNumberPSSCH_;
    int maxSubchannelNumberPSSCH_;
    int maximumLatency_;
@@ -61,6 +61,8 @@ protected:
    double cbr_;
    bool useCBR_;
    bool packetDropping_;
+   bool adjacencyPSCCHPSSCH_;
+   bool randomScheduling_;
    int missedTransmissions_;
 
    double remainingTime_;
@@ -72,6 +74,7 @@ protected:
 
    std::vector<std::unordered_map<std::string, double>> cbrPSSCHTxConfigList_;
    std::vector<std::unordered_map<std::string, double>> cbrLevels_;
+
    std::unordered_map<double, int> previousTransmissions_;
    std::vector<double> validResourceReservationIntervals_;
 
@@ -92,6 +95,7 @@ protected:
    UeInfo* ueInfo_;
 
    simsignal_t grantStartTime;
+   simsignal_t takingReservedGrant;
    simsignal_t grantBreak;
    simsignal_t grantBreakTiming;
    simsignal_t grantBreakSize;
@@ -105,6 +109,8 @@ protected:
    simsignal_t grantRequests;
    simsignal_t packetDropDCC;
    simsignal_t macNodeID;
+   simsignal_t rrcSelected;
+   simsignal_t retainGrant;
 
 //   // Lte AMC module
 //   LteAmc *amc_;
@@ -122,7 +128,7 @@ protected:
     /**
      * Generate a scheduling grant
      */
-    virtual void macGenerateSchedulingGrant(double maximumLatency, int priority);
+    virtual void macGenerateSchedulingGrant(double maximumLatency, int priority, int pktSize);
 
 
     /**
@@ -134,6 +140,8 @@ protected:
      * Reads MAC parameters for ue and performs initialization.
      */
     virtual void initialize(int stage);
+
+    virtual double calculateChannelOccupancyRatio(int period);
 
     /**
      * Analyze gate of incoming packet

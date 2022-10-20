@@ -67,6 +67,8 @@ void LteRlcUmRealisticD2D::initialize(int stage)
         std::string pdcpType = getParentModule()->getParentModule()->par("LtePdcpRrcType").stdstringValue();
 
         packetSize_ = par("packetSize");
+        scenario3gpp_ = par("scenario3gpp");
+        counter3gpp_ = intuniform(0, 4, 0);
 
         if (nodeType.compare("ENODEB") == 0)
         {
@@ -79,7 +81,7 @@ void LteRlcUmRealisticD2D::initialize(int stage)
         else if (nodeType.compare("UE") == 0)
         {
             nodeType_ = UE;
-            if (macType.compare("LteMacUeRealisticD2D") != 0 && macType.compare("LteMacVUeMode4") != 0)
+            if (macType.compare("LteMacUeRealisticD2D") != 0 && macType.compare("LteMacVUeMode4") != 0 && macType.compare("LteMacVUeMode4NonSPS") != 0)
                 throw cRuntimeError("LteRlcUmRealisticD2D::initialize - %s module found, must be LteMacUeRealisticD2D. Aborting", macType.c_str());
             if (pdcpType.compare("LtePdcpRrcUeD2D") != 0)
                 throw cRuntimeError("LteRlcUmRealisticD2D::initialize - %s module found, must be LtePdcpRrcUeD2D. Aborting", pdcpType.c_str());
